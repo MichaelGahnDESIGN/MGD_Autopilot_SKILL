@@ -78,12 +78,46 @@ vorliegt · neue Fallstricke. Zum Schluss ein Satz: Ziel erreicht, ja oder nein.
 
 ## Projektbefehle
 
-<!-- Hier die echten Befehle dieses Projekts eintragen — wortwörtlich kopierbar. -->
+<!-- Hier die echten Befehle dieses Projekts eintragen — wortwörtlich kopierbar.
+     Codex führt die hier genannten Tests vor Abschluss einer Aufgabe aus, darum
+     stehen sie ganz oben und vor jeder Erklärung. -->
 
 ```bash
-# Tests:
+# Setup:
+# Tests (gesamt):
+# Tests (einzelne Datei):
 # Lint:
+# Typecheck:
 # Build:
 # Ausrollen:
 # Gegenprobe live:
 ```
+
+Die dateibezogenen Varianten sind wichtig: Damit kannst du nach **jeder**
+Änderung schnell prüfen, statt erst am Ende alles laufen zu lassen.
+
+## Was „fertig" bedeutet
+
+- Tests grün bzw. exakt auf der notierten Grundlinie
+- Lint und Typecheck ohne Fehler
+- Der Diff ist prüfbar: keine ungeklärten Reste, keine auskommentierten Tests
+- Die Änderung ist dort nachweisbar, wo der Nutzer sie sieht
+
+## Fehlerbehandlung
+
+Schlägt eine Prüfung fehl: Ursache identifizieren, beheben, erneut prüfen.
+**Nach drei erfolglosen Versuchen an derselben Sache aufhören und den Stand
+melden**, statt weiter zu probieren. Fehler nie unterdrücken, um weiterzukommen.
+
+## Repo-Aufbau
+
+<!-- Wichtige Verzeichnisse in ein bis zwei Zeilen je Eintrag. -->
+
+## Konventionen
+
+<!-- Codestil, Commit-Format, PR-Erwartungen. -->
+
+---
+
+Ausführliche Fassung dieser Arbeitsweise:
+https://github.com/MichaelGahnDESIGN/MGD_Autopilot_SKILL
