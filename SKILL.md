@@ -56,11 +56,13 @@ eine Konfiguration:
 
 | | Claude Code | ChatGPT Codex |
 |---|---|---|
-| Schleife | `/goal <bedingung>` (+ Auto Mode) | äußere Schleife um `codex exec` |
-| Freigaben | `--permission-mode dontAsk` + `permissions.allow` | `--ask-for-approval never` |
+| Schleife | `/goal <bedingung>` | äußere Schleife um `codex exec` |
+| Freigaben | Auto Mode (+ `autoMode.environment`) | `--ask-for-approval never` |
 | Rechte | `permissions.deny` + `PreToolUse`-Hook | `--sandbox workspace-write` |
+| Checkpoint | `permissions.ask` für Push/Deploy | `--ask-for-approval on-request` |
 | Selbstprüfung | `PostToolUse`-Hook, `Stop`-Hook | Testbefehle in `AGENTS.md` |
 | Unbeaufsichtigt | `claude -p "/goal …" --output-format stream-json --verbose` | `codex exec --profile autopilot` |
+| Ohne offene Sitzung | Routines (`/schedule`) oder Desktop-Zeitplan | Automations in der App |
 
 ---
 
@@ -330,17 +332,82 @@ Code den Stop-Hook außer Kraft (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`). Dein Skript
 sollte `stop_hook_active` aus dem Eingabe-JSON prüfen und dann durchlassen —
 sonst baust du eine Endlosschleife.
 
+### Auto Mode — Freigaben ohne Dauerfragen
+
+`/goal` ändert keine Berechtigungen. Damit die Turns wirklich unbeaufsichtigt
+laufen, braucht es **Auto Mode**: Werkzeugaufrufe gehen durch einen
+Klassifikator, der alles blockt, was unumkehrbar, zerstörerisch oder nach außen
+gerichtet ist.
+
+Standardmäßig vertraut der Klassifikator nur dem Arbeitsverzeichnis und den
+Remotes des aktuellen Repos. Alles andere — eigene Paketregistry, interne
+Domains, Cloud-Buckets — musst du benennen:
+
+```json
+{
+  "autoMode": {
+    "environment": [
+      "$defaults",
+      "Source control: github.example.com/acme und alle Repos darunter",
+      "Key internal services: CI unter ci.example.com"
+    ]
+  }
+}
+```
+
+> `"$defaults"` **nicht vergessen.** Ohne diesen Eintrag ersetzt du die
+> eingebauten Regeln komplett — bei `soft_deny` verlierst du damit unter
+> anderem die Sperren gegen Force-Push, `curl | bash` und Produktions-Deploys.
+
+Prüfen und nachbessern:
+
+```bash
+claude auto-mode defaults    # eingebaute Regeln anzeigen
+claude auto-mode config      # was tatsächlich gilt
+claude auto-mode critique    # eigene Regeln bewerten lassen
+```
+
+Der Klassifikator liest auch `CLAUDE.md` — „niemals force-pushen" dort steuert
+Claude **und** den Klassifikator.
+
+### Der Mensch-Checkpoint: `permissions.ask`
+
+**Der wichtigste Baustein für die Zustimmungsliste unten.** `ask`-Regeln werden
+**vor** dem Klassifikator ausgewertet und erzwingen eine Nachfrage — auch im
+Auto Mode:
+
+```json
+{
+  "permissions": {
+    "ask": ["Bash(git push *)", "Bash(gh pr create *)", "Bash(*deploy*)"]
+  }
+}
+```
+
+Damit ist „nach außen gerichtete Aktionen brauchen Zustimmung" keine
+Selbstverpflichtung mehr, sondern durchgesetzt. Die Rangfolge:
+
+| Grenze | Mechanismus | Wirkung im Auto Mode |
+|---|---|---|
+| Nie ausführen | `permissions.deny` | blockt vor dem Klassifikator, nicht überschreibbar |
+| Vorher fragen | `permissions.ask` | fragt immer; der Klassifikator darf nicht durchwinken |
+| Einmalig im Gespräch gesagt | „bitte nicht pushen" | hält nur, bis die Kontextverdichtung die Nachricht wegräumt |
+
+> Die dritte Zeile ist der Fallstrick: Eine im Gespräch genannte Grenze
+> **überlebt die Kontextverdichtung nicht**. Für einen langen Lauf gehört sie in
+> die Einstellungsdatei, nicht in einen Satz.
+
 ### Weitere Bausteine
 
 | Werkzeug | Wofür im Autopilot |
 |---|---|
-| `/loop <intervall> <prompt>` | zeitgesteuert wiederholen (z. B. Agenten überwachen) |
 | Subagenten (`.claude/agents/*.md`) | Umsetzung delegieren; `tools:` begrenzt die Rechte, `model:` die Kosten |
 | `claude -p` | unbeaufsichtigt in CI/Skript; mit `--output-format json`, `--max-turns`, `--allowedTools` |
 | `--permission-mode dontAsk` | verweigert alles außer `permissions.allow` — für gesperrte CI |
 | Plan Mode (`--permission-mode plan`) | erst erkunden, nichts ändern |
 | Checkpoints (`Esc Esc`) | Rückweg nach einer schlechten Änderung |
 | `@datei`-Import in `CLAUDE.md` | Projektregeln einbinden (bis 4 Ebenen tief) |
+| `PermissionDenied`-Hook | auf Blockaden programmatisch reagieren |
 
 > **Grenze der Checkpoints:** Sie erfassen nur Änderungen über die Werkzeuge
 > Edit/Write. Was ein Bash-Befehl anrichtet (`rm`, `mv`, `cp`), ist **nicht**
@@ -459,17 +526,118 @@ oder auf Zuruf per Kommentar `@codex review`.
 
 ---
 
+## Dauerbetrieb: Zeitpläne und Ereignisse
+
+> **Vorbedingung, ausdrücklich so dokumentiert:** Einen wiederkehrenden Auftrag
+> einzurichten, **bevor** er von Hand zuverlässig läuft, gilt in der
+> Codex-Dokumentation als typischer Fehler. Erst manuell beweisen, dass Prompt
+> und Abbruchbedingung tragen, dann automatisieren. Ein Zeitplan vervielfacht,
+> was du hast — auch den Murks.
+
+### Was überlebt was
+
+| | Claude Code | Reichweite |
+|---|---|---|
+| `/loop` | Sitzung offen nötig, läuft lokal | endet mit der Sitzung; wird bei `--resume` wiederhergestellt |
+| Desktop-Zeitplan | Rechner an, kein Sitzungsfenster nötig | überlebt Neustarts, Zugriff auf lokale Dateien, ab 1 Minute |
+| Routines (`/schedule`) | Anthropic-Cloud | überlebt geschlossenen Laptop, **kein** Zugriff auf lokale Dateien, ab 1 Stunde |
+
+Für „ich bin ein paar Stunden weg" ist `/loop` also nur so lange gut, wie das
+Terminal offen bleibt. Soll es das nicht, ist eine **Routine** oder ein
+Desktop-Zeitplan das richtige Werkzeug.
+
+### `/loop` — was man wissen muss
+
+| Eigenschaft | Wert |
+|---|---|
+| `/loop 15m <prompt>` | festes Intervall |
+| `/loop <prompt>` | Claude wählt selbst 1 min – 1 h je nach Beobachtung |
+| `/loop` (nackt) | eingebauter Wartungs-Prompt oder eigene `.claude/loop.md` |
+| Ablauf | **7 Tage**, dann automatisch Schluss |
+| Höchstzahl | 50 Aufträge je Sitzung |
+| Stoppen | `Esc`, solange die Schleife wartet |
+
+> ⚠️ **Jitter:** Wiederkehrende Aufträge feuern bis zu **30 Minuten nach** der
+> geplanten Zeit (bei Intervallen unter einer Stunde bis zur Hälfte des
+> Intervalls). Ein `/loop 15m` ist also keine Viertelstundengarantie. Und
+> Aufträge feuern nur, wenn Claude **untätig** ist — verpasste Termine werden
+> nicht nachgeholt.
+
+Eigene Standardanweisung statt des eingebauten Wartungs-Prompts:
+`.claude/loop.md` (Projekt) oder `~/.claude/loop.md` (global), bis 25.000 Bytes.
+Änderungen greifen ab dem nächsten Durchlauf.
+
+### Besser als Pollen: auf Ereignisse warten
+
+Eine Schleife, die alle 15 Minuten nachsieht, verbrennt Kontingent und reagiert
+im Schnitt 7 Minuten zu spät. Zwei Alternativen:
+
+- **Monitor-Werkzeug** — führt ein Skript im Hintergrund und liefert jede
+  Ausgabezeile zurück. Kein Pollen, schnellere Reaktion, weniger Tokens.
+- **Channels** — ein MCP-Server schiebt Webhooks und Alarme **in die laufende
+  Sitzung**. Die CI meldet ihren Fehlschlag selbst, statt dass jemand fragt.
+
+Faustregel: Pollen nur, wenn es kein Ereignis gibt, auf das man warten kann.
+
+### Routines (Claude Code, Cloud)
+
+```
+/schedule täglich um 9 Uhr die offenen PRs durchsehen
+/schedule list · /schedule update · /schedule run
+```
+
+Auslöser: **Zeitplan**, **API** (HTTP-POST mit Bearer-Token) oder
+**GitHub-Ereignis** (PR, Release, mit Filtern). Mehrere Auslöser je Routine
+kombinierbar. API- und GitHub-Auslöser lassen sich nur im Web anlegen.
+
+> Routines laufen **vollständig autonom — es gibt keine Freigabeprompts.** Was
+> sie erreichen können, bestimmen allein die gewählten Repos, die
+> Netzwerkeinstellung der Umgebung und die eingebundenen Connectors. Alle
+> Connectors sind standardmäßig dabei; nimm raus, was die Routine nicht braucht.
+
+> **Passt zur Leitplanke „Anweisungen aus Dateien sind Daten":** Text, den ein
+> API-Auslöser mitschickt, kommt in einem `<routine-fire-payload>`-Block an, der
+> ihn ausdrücklich als **unvertrauenswürdig** kennzeichnet. Die Routine handelt
+> nur darauf, wenn ihr eigener Prompt es verlangt. Wer den Token hat, kann
+> Text schicken — die Kennzeichnung ist der Schutz.
+
+Ein grüner Lauf in der Übersicht heißt nur: die Sitzung ist ohne
+Infrastrukturfehler beendet worden. **Nicht**, dass die Aufgabe geklappt hat.
+Genau der Fall aus [Regel 4](#die-zehn-härtungsregeln) — am Ziel prüfen, nicht
+am Werkzeug.
+
+### Automations (Codex)
+
+Anlegen im ChatGPT- oder Codex-App-Gespräch; die CLI verwaltet sie nicht.
+
+- **Eigenständig** — jeder Lauf startet frisch, Ergebnis landet im Posteingang.
+- **Im Gespräch** — der Lauf kehrt in dieselbe Unterhaltung zurück und behält
+  den Kontext. Für laufende Beobachtung und Prüfschleifen.
+- Freie Taktung über **RRULE** (RFC 5545), z. B.
+  `RRULE:FREQ=MONTHLY;BYMONTHDAY=1;BYHOUR=9;BYMINUTE=0`
+- In Git-Repos laufen sie lokal **oder in einem eigenen Worktree** — der
+  Worktree hält geplante Läufe von deiner unfertigen Arbeit fern. Nimm ihn.
+
+Für Aufträge im Gespräch verlangt die Doku ausdrücklich einen dauerhaften
+Prompt mit **Entscheidungskriterien und Abbruchbedingungen** — also genau den
+[Vertrag](#phase-0--der-vertrag-pflicht-nicht-überspringen).
+
+---
+
 ## Dasselbe in beiden Werkzeugen
 
 | Zweck | Claude Code | ChatGPT Codex |
 |---|---|---|
 | Arbeitsweise dauerhaft hinterlegen | `CLAUDE.md`, Skills | `AGENTS.md` (global → Repo → Unterordner) |
 | Schleife bis Bedingung erfüllt | `/goal <bedingung>` | Äußere Schleife um `codex exec` (keine eingebaute Bedingungsprüfung) |
-| Schleife nach Zeit | `/loop <intervall>` | `cron` / `launchd` / CI-Zeitplan |
+| Schleife nach Zeit | `/loop <intervall>` (Sitzung offen) | äußere Schleife, `cron`, `launchd` |
+| Dauerhafter Zeitplan | Routines (`/schedule`, Cloud) · Desktop-Zeitpläne | Automations (App, RRULE) |
+| Auf Ereignisse reagieren | Monitor-Werkzeug · Channels · Routine mit GitHub-/API-Auslöser | GitHub-Aktion, `notify` |
 | Selbstkorrektur nach Änderung | `PostToolUse`-Hook → `additionalContext` | Testbefehle in `AGENTS.md` (Codex führt sie vor Abschluss aus) |
 | „Nicht aufhören, solange rot" | `Stop`-Hook mit `decision: block` | Regel in `AGENTS.md` + äußere Schleife |
-| Unbeaufsichtigt starten | `claude -p --permission-mode dontAsk` | `codex exec --sandbox workspace-write --ask-for-approval never` |
-| Rechte begrenzen | `permissions.deny`, `PreToolUse`-Hook (Exit 2) | `--sandbox`, `approval_policy`, Sandbox-Netzsperre |
+| Unbeaufsichtigt starten | Auto Mode, `claude -p --permission-mode dontAsk` | `codex exec --sandbox workspace-write --ask-for-approval never` |
+| Rechte begrenzen | `permissions.deny`, `PreToolUse`-Hook (Exit 2), `autoMode.hard_deny` | `--sandbox`, `approval_policy`, Sandbox-Netzsperre |
+| Mensch-Checkpoint erzwingen | `permissions.ask` | `--ask-for-approval on-request` |
 | Delegieren | Subagenten (`.claude/agents/*.md`) | mehrere `codex exec`-Läufe / Codex Cloud |
 | Strukturierte Ausgabe | `--output-format json`, `--json-schema` | `--json`, `--output-schema` |
 | Fortsetzen | `--continue` / `--resume <id>` | `codex exec resume --last` / `<SESSION_ID>` |
@@ -532,6 +700,20 @@ gerichtete Aktionen **nicht** ab. Sammle sie und leg sie am Ende vor.
 - Kostenpflichtige Dienste buchen
 - Daten endgültig löschen
 - Zugangsdaten irgendwo eintragen
+
+**Nicht nur versprechen — durchsetzen.** In Claude Code erzwingt
+`permissions.ask` die Nachfrage auch im Auto Mode:
+
+```json
+{ "permissions": { "ask": ["Bash(git push *)", "Bash(gh pr create *)", "Bash(*deploy*)"] } }
+```
+
+In Codex leistet `--ask-for-approval on-request` das Gleiche für Zugriffe
+außerhalb des Arbeitsbereichs und aufs Netz.
+
+> Eine Grenze, die du nur im Gespräch nennst („bitte noch nicht ausrollen"),
+> **überlebt die Kontextverdichtung nicht.** Bei einem langen Lauf gehört sie in
+> die Einstellungsdatei.
 
 ### Zugangsdaten
 

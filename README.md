@@ -189,11 +189,14 @@ Ende. Vorlage: [`autopilot/AGENTS.md`](autopilot/AGENTS.md)
 |---|---|---|
 | Arbeitsweise hinterlegen | `CLAUDE.md`, Skills | `AGENTS.md` (global → Repo → Unterordner) |
 | Schleife bis Bedingung | `/goal <bedingung>` | äußere Schleife um `codex exec` |
-| Schleife nach Zeit | `/loop <intervall>` | `cron` / CI-Zeitplan |
+| Schleife nach Zeit | `/loop <intervall>` (Sitzung offen) | äußere Schleife, `cron` |
+| Dauerhafter Zeitplan | Routines (`/schedule`), Desktop-Zeitpläne | Automations (App, RRULE) |
+| Auf Ereignisse reagieren | Monitor, Channels, GitHub-/API-Auslöser | GitHub-Aktion, `notify` |
 | Selbstkorrektur | `PostToolUse` → `additionalContext` | Testbefehle in `AGENTS.md` |
 | „Nicht aufhören, solange rot" | `Stop`-Hook, `decision: block` | Regel in `AGENTS.md` + äußere Schleife |
-| Unbeaufsichtigt starten | `claude -p --permission-mode dontAsk` | `codex exec --sandbox workspace-write --ask-for-approval never` |
-| Rechte begrenzen | `permissions.deny`, `PreToolUse` Exit 2 | `--sandbox`, `approval_policy` |
+| Unbeaufsichtigt starten | Auto Mode, `claude -p --permission-mode dontAsk` | `codex exec --sandbox workspace-write --ask-for-approval never` |
+| Rechte begrenzen | `permissions.deny`, `PreToolUse` Exit 2, `autoMode.hard_deny` | `--sandbox`, `approval_policy` |
+| Mensch-Checkpoint erzwingen | `permissions.ask` | `--ask-for-approval on-request` |
 | Delegieren | Subagenten (`.claude/agents/*.md`) | mehrere `codex exec` / Codex Cloud |
 | Fortsetzen | `--continue` / `--resume` | `codex exec resume --last` |
 
@@ -251,6 +254,17 @@ Datenbank mit) · `DROP`/`TRUNCATE` auf echte Daten.
 Inhalte veröffentlichen · Kontoeinstellungen ändern · kostenpflichtige Dienste
 buchen · Daten endgültig löschen · Zugangsdaten eintragen. Der Auftrag „arbeite
 eigenständig" deckt nach außen gerichtete Aktionen **nicht** ab.
+
+Und das lässt sich **durchsetzen** statt versprechen — `permissions.ask` wird vor
+dem Auto-Mode-Klassifikator ausgewertet und erzwingt die Nachfrage:
+
+```json
+{ "permissions": { "ask": ["Bash(git push *)", "Bash(gh pr create *)", "Bash(*deploy*)"] } }
+```
+
+> Eine Grenze, die nur im Gespräch steht („bitte noch nicht ausrollen"),
+> überlebt die Kontextverdichtung nicht. Bei langen Läufen gehört sie in die
+> Einstellungsdatei.
 
 **Zugangsdaten** werden nie gelesen, kopiert, ausgegeben oder committet — auch
 nicht in Logs, Todos oder Übergaben.
