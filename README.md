@@ -216,8 +216,8 @@ den Testbefehl entscheiden.
 9. **Fortschritt außerhalb des Kontextfensters festhalten** — Kontext ist flüchtig.
 10. **Fehlschläge sofort und vollständig melden** — „fast fertig" ist keine Statusmeldung.
 
-Ausführlich in [SKILL.md](SKILL.md) und im
-[Wiki](https://github.com/MichaelGahnDESIGN/MGD_Autopilot_SKILL/wiki/Die-zehn-Härtungsregeln).
+Ausführlich — mit dem jeweiligen Vorfall dahinter — in [SKILL.md](SKILL.md) und im
+[Wiki](https://github.com/MichaelGahnDESIGN/MGD_Autopilot_SKILL/wiki/Die-zehn-Regeln).
 
 ---
 
