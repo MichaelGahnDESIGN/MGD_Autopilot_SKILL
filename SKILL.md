@@ -205,9 +205,41 @@ Zielsystem nachsehen: „Deploy gelaufen" ist keine Bestätigung, „Live meldet
 1.2.3" ist eine.
 
 **7 — Aufschreiben.** Todo-Liste aktualisieren, neue Fallstricke notieren,
-Unerledigtes ehrlich vermerken. Dann zurück zu 1 — oder Phase 2.
+Unerledigtes ehrlich vermerken. Wo `/graphify` verfügbar ist, den
+Wissensgraphen des Projekts nachziehen (`/graphify <projekt> --update`),
+damit die Sitzungserkenntnisse auch dort landen — Regeln dazu im Abschnitt
+**Wissensgraph mit `/graphify`**. Dann zurück zu 1 — oder Phase 2.
 
 ---
+
+## Wissensgraph mit `/graphify`
+
+Der Autopilot pflegt neben Todo-Liste und Doku auch den Wissensgraphen des
+Projekts (`/graphify`) — er macht Zusammenhänge abfragbar, die in keinem
+einzelnen Dokument stehen, und überlebt das Kontextfenster.
+
+**Erstes Verwenden in einer Umgebung:** Zuerst prüfen, ob graphify
+installiert ist. Wenn nicht, die aktuelle Version von GitHub installieren —
+aber **vorher den Nutzer fragen**, ob die Installation **lokal für den
+Benutzer** (überall verfügbar, z. B. `uv tool install graphifyy`) oder **nur
+für das Projekt** (in dessen Umgebung, z. B. `pip install graphifyy` in die
+Projekt-venv) erfolgen soll. Die Antwort abwarten — nicht stillschweigend
+global installieren.
+
+**Laufender Betrieb:**
+
+- Existiert `graphify-out/graph.json`, wird **inkrementell** aktualisiert
+  (`--update`), nie blind neu gebaut — ein Neuaufbau kann Wissen verlieren.
+- Den **Schrumpfschutz niemals mit `--force` übergehen**: weigert sich
+  graphify, einen kleineren Graphen zu schreiben, ist das ein Befund
+  (fehlende Dateien? kaputter Lauf?), keine Unannehmlichkeit. Erst klären,
+  dann schreiben. Der Schutz hat in der Praxis zweimal echten Wissensverlust
+  verhindert.
+- In Schritt 7 der Schleife nachziehen, wenn sich Struktur oder Doku des
+  Projekts geändert haben; bei reinen Kleinständerungen reicht einmal je
+  Sitzung.
+- Fragen zum Projekt („was hängt an X?") zuerst gegen den Graphen stellen
+  (`graphify query`), statt den Quellbaum erneut zu durchsuchen.
 
 ## Prozessüberwachung — alle 5 Minuten nachsehen
 
@@ -857,6 +889,7 @@ nutz ihn statt einer Eigenbaulösung.
 | Skill | Rolle | Quelle |
 |---|---|---|
 | `/simplify` | Schritt 6: Diff vor dem Commit verschlanken (nur Claude Code, eingebaut — sucht keine Fehler, nur Qualität) | eingebaut in Claude Code |
+| `/graphify` | Schritt 7: Wissensgraph inkrementell nachziehen; Erstinstallation nur nach Rückfrage lokal/projektbezogen | [graphify auf GitHub](https://github.com/safishamsi/graphify) |
 | `/todo` | Schritt 7: Fortschritt außerhalb des Kontextfensters | [MGD_Todo_SKILL](https://github.com/MichaelGahnDESIGN/MGD_Todo_SKILL) |
 | `/thread` | Phase 2: Übergabe, wenn das Ziel offen bleibt | [MGD_AI-Thread](https://github.com/MichaelGahnDESIGN/MGD_AI-Thread) |
 | `/dev` | Schritt 6: Release, Sync, Tests | [MGD_DEV_SKILL](https://github.com/MichaelGahnDESIGN/MGD_DEV_SKILL) |

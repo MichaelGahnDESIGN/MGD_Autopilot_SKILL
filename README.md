@@ -300,6 +300,16 @@ Danach laufen die Tests erneut — auch eine Vereinfachung ist eine Änderung.
 `/simplify` sucht keine Fehler (dafür: `/code-review`); es hält den Code klein,
 bevor er festgeschrieben wird. In Codex entfällt der Schritt ersatzlos.
 
+## Wissensgraph: `/graphify`
+
+Der Autopilot hält den Wissensgraphen des Projekts aktuell (Schritt 7 der
+Schleife, inkrementell per `--update`). Beim **ersten Verwenden** wird die
+aktuelle graphify-Version von GitHub installiert — vorher fragt der Autopilot
+den Nutzer, ob **lokal für den Benutzer** oder **nur für das Projekt**
+installiert werden soll, und wartet die Antwort ab. Der eingebaute
+Schrumpfschutz wird nie mit `--force` übergangen: ein Graph, der kleiner
+werden will, ist ein Befund, kein Hindernis.
+
 ## Prozessüberwachung — alle 5 Minuten
 
 Ein Autopilot-Lauf startet Hintergrundprozesse: Testläufe, Builds, Subagenten.
