@@ -194,13 +194,63 @@ Ziel, nicht am Werkzeug:
 Praxis eine Funktion wochenlang gescheitert: Sie war da, sie war klickbar, sie
 tat nichts.
 
-**6 — Festschreiben.** Erst wenn Validierung und Gegenprobe stimmen. Kleine
+**6 — Festschreiben.** Erst wenn Validierung und Gegenprobe stimmen. Vorher,
+wo verfügbar, `/simplify` über die Änderung laufen lassen (in Claude Code
+eingebaut): es findet Wiederverwendung, Vereinfachung und unnötige Umwege im
+Diff und wendet sie an — danach Tests erneut laufen lassen, denn auch eine
+Vereinfachung ist eine Änderung. Es sucht KEINE Fehler; dafür ist
+`/code-review` da. Kleine
 Commits mit einer Nachricht, die das **Warum** nennt. Nach dem Ausrollen auf dem
 Zielsystem nachsehen: „Deploy gelaufen" ist keine Bestätigung, „Live meldet
 1.2.3" ist eine.
 
 **7 — Aufschreiben.** Todo-Liste aktualisieren, neue Fallstricke notieren,
 Unerledigtes ehrlich vermerken. Dann zurück zu 1 — oder Phase 2.
+
+---
+
+## Prozessüberwachung — alle 5 Minuten nachsehen
+
+Ein Autopilot-Lauf startet Hintergrundprozesse: eigene Testläufe, Builds,
+Subagenten, Warteschleifen. Jeder davon kann hängen, sterben oder — schlimmer —
+**unbemerkt weiterlaufen** und späteren Läufen in die Quere kommen. Deshalb gilt:
+
+**Alle 5 Minuten die laufenden Prozesse prüfen und bei Befund sofort
+korrigieren.** Das betrifft die eigene Arbeit UND die aller gestarteten
+Agenten. Nicht auf Abschlussmeldungen warten und hoffen — nachsehen.
+
+Was die Prüfung beantworten muss:
+
+1. **Läuft noch, was laufen soll?** Ein Testlauf ohne neue Ausgabezeilen seit
+   Minuten ist verdächtig. Belegt: eine Testsuite hing über zwei Stunden mit
+   leerer Ausgabedatei (Netzlaufwerk), statt der üblichen zehn Minuten —
+   niemand merkt das ohne aktiven Blick.
+2. **Läuft nichts, was nicht laufen soll?** Abgebrochene Läufe hinterlassen
+   Zombies. Belegt: ein per Zeitlimit „beendeter" Lauf lief als Prozess weiter
+   und hielt die Testdatenbank gesperrt; ein gestoppter Subagent startete brav
+   immer neue eigene Testläufe. Folge waren wandernde Fehlerbilder
+   (`database schema has changed`, wechselnde Fehlerzahlen), die wie
+   Code-Fehler aussahen und keine waren.
+3. **Wer hält geteilte Ressourcen?** Bei wirren Testfehlern zuerst fragen
+   „wer hält die Datei?" statt Prozesslisten zu durchsuchen:
+
+   ```bash
+   lsof <pfad-zur-testdatenbank>        # zeigt auch Prozesse, die ps-Muster verfehlen
+   ```
+
+   `ps | grep phpunit` übersieht Prozesse, deren Name nur noch `php` lautet —
+   `lsof` auf die Ressource findet sie alle.
+
+Korrekturregeln:
+
+- Hängende eigene Läufe beenden und **mit frischem Zustand** neu starten —
+  abgebrochene Läufe hinterlassen halbe Tabellen und offene Sperren
+  (Testdatenbank beiseiteschieben, nicht weiterverwenden).
+- Nie zwei Läufe auf derselben Testdatenbank oder demselben Cache dulden —
+  auch nicht „ich messe kurz, während der Agent noch testet". Erst den
+  Agenten abwarten oder stoppen, dann selbst messen.
+- Jeden Befund im Bericht nennen: ein getöteter Zombie ist ein Ergebnis,
+  kein Betriebsgeräusch.
 
 ---
 
@@ -806,6 +856,7 @@ nutz ihn statt einer Eigenbaulösung.
 
 | Skill | Rolle | Quelle |
 |---|---|---|
+| `/simplify` | Schritt 6: Diff vor dem Commit verschlanken (nur Claude Code, eingebaut — sucht keine Fehler, nur Qualität) | eingebaut in Claude Code |
 | `/todo` | Schritt 7: Fortschritt außerhalb des Kontextfensters | [MGD_Todo_SKILL](https://github.com/MichaelGahnDESIGN/MGD_Todo_SKILL) |
 | `/thread` | Phase 2: Übergabe, wenn das Ziel offen bleibt | [MGD_AI-Thread](https://github.com/MichaelGahnDESIGN/MGD_AI-Thread) |
 | `/dev` | Schritt 6: Release, Sync, Tests | [MGD_DEV_SKILL](https://github.com/MichaelGahnDESIGN/MGD_DEV_SKILL) |

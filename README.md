@@ -291,6 +291,34 @@ Ausführlich, mit dem jeweiligen Vorfall dahinter, in [SKILL.md](SKILL.md) und i
 
 ---
 
+## Vor dem Commit: `/simplify`
+
+Wo der Autopilot in Claude Code läuft, gehört vor jedes Festschreiben ein
+`/simplify`-Lauf über die Änderung: das eingebaute Kommando findet
+Wiederverwendung, Vereinfachung und unnötige Umwege im Diff und wendet sie an.
+Danach laufen die Tests erneut — auch eine Vereinfachung ist eine Änderung.
+`/simplify` sucht keine Fehler (dafür: `/code-review`); es hält den Code klein,
+bevor er festgeschrieben wird. In Codex entfällt der Schritt ersatzlos.
+
+## Prozessüberwachung — alle 5 Minuten
+
+Ein Autopilot-Lauf startet Hintergrundprozesse: Testläufe, Builds, Subagenten.
+Jeder davon kann hängen, sterben oder unbemerkt weiterlaufen und späteren
+Läufen in die Quere kommen. Deshalb prüft der Autopilot **alle 5 Minuten** die
+laufenden Prozesse — die eigenen und die aller Agenten — und korrigiert sofort:
+
+- **Hängt etwas?** Ein Lauf ohne neue Ausgabe seit Minuten wird beendet und
+  mit frischem Zustand neu gestartet.
+- **Lebt etwas, das tot sein sollte?** Abgebrochene Läufe hinterlassen
+  Zombies, die Datenbanken sperren. Diagnose über die Ressource, nicht über
+  die Prozessliste: `lsof <datei>` findet auch Prozesse, die `ps`-Muster
+  verfehlen.
+- **Teilen sich zwei Läufe eine Ressource?** Nie dulden — erst den einen
+  abwarten oder stoppen, dann messen.
+
+Jeder Befund gehört in den Bericht: ein getöteter Zombie ist ein Ergebnis,
+kein Betriebsgeräusch.
+
 ## 🔒 Sicherheit
 
 Der Skill ist für unbeaufsichtigten Betrieb gebaut. Entsprechend eng die
