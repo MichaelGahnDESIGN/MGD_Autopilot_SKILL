@@ -333,6 +333,42 @@ Aufgabe gekostet hätte.
 
 ---
 
+## Token-sparender Zustandsmodus (Zustandsdatei statt langem Kontext)
+
+Läuft die Schleife in einem wachsenden Kontext, wird jede Runde teurer: bei jeder
+Anfrage geht der gesamte Verlauf erneut mit. Für lange Läufe legt der Skill den
+Zustand deshalb in eine Datei (`.loop/STATE.md`, Vorlage `autopilot/STATE.template.md`)
+und startet jede Runde mit frischem, kleinem Kontext. Das Protokoll ist
+agent-neutral und identisch zu `platform/LOOP.md` im MGD-Plattform-Builder.
+
+**Eine Runde:** nur `STATE.md` lesen → Stoppregeln prüfen → genau **einen** kleinen
+Schritt im erlaubten Bereich → Prüfskript laufen lassen (nur die letzten Zeilen
+behalten) → `STATE.md` aktualisieren → Kontext beenden.
+
+**Stoppregeln (hart, die erste zutreffende gewinnt):** Prüfskript Exit 0 = `done`;
+Rundenlimit erreicht = `stopped`; Frist überschritten = `stopped`; gleicher Fehler
+oder gleicher Diff `max_ohne_fortschritt`-mal = `blocked`; Schritt berührt
+`verboten` oder Pfade außerhalb `erlaubt` = `blocked`; unklare Anforderung oder
+mögliche Datenverluste = `blocked`. Nach einem Stopp nie selbst neu starten.
+
+**Kosten-Hebel:**
+- Deterministisches (Tests, Lint, Format) in Skripte und Hooks, nicht in Modellüberlegung.
+- Modell pro Schritt: günstig für Prüfen/Doku, Standard für Umsetzung, das stärkste
+  Modell nur nach `blocked` und mit Zustimmung des Nutzers.
+- Modell und Effort **vor** dem Start festlegen; ein Wechsel mitten im Lauf leert den Prompt-Cache.
+- Erst Pilot mit `max_runden: 3` auf einem Branch, Verbrauch prüfen (`/goal` ohne
+  Argument bzw. `/usage` in Claude Code), dann Limits erhöhen.
+- Subagenten nur für unabhängige, laute Teilaufgaben; Mehr-Agenten-Läufe können ein
+  Mehrfaches an Tokens kosten. Ergebnisse gehören in `STATE.md`, nicht in den Chat.
+- Ereignisse statt Pollen (Monitor-Tool, Webhooks).
+
+**Ausführung:** Claude Code interaktiv: `/goal <Ziel> (Prüfskript endet mit 0) or stop after 10 turns`.
+Unbeaufsichtigt in beiden Werkzeugen: Schleife im Shell-Skript mit `claude -p` bzw.
+`codex exec`, Limits (Rundenzähler, Zeitlimit) **außerhalb** des Modells. Flags vorher mit
+`--help` prüfen; Codex-Details stammen überwiegend aus Sekundärquellen.
+
+Keine Schleife für Entscheidungen mit Rechts-, Datenschutz-, Kosten- oder Produktionsfolgen.
+
 ## Werkzeugkasten: Claude Code
 
 Belegt gegen die offizielle Dokumentation (Stand August 2026). Die
